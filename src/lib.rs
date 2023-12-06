@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::io;
 
+use arrow::error::ArrowError;
 use parquet::errors::ParquetError;
 
 pub mod inspector;
@@ -12,8 +13,15 @@ pub type Result<T> = std::result::Result<T, CliError>;
 #[derive(Debug)]
 pub enum CliError {
     General(String),
+    ArrowError(ArrowError),
     ParquetError(ParquetError),
     External(Box<dyn Error + Send + Sync>),
+}
+
+impl From<ArrowError> for CliError {
+    fn from(error: ArrowError) -> Self {
+        Self::ArrowError(error)
+    }
 }
 
 impl From<ParquetError> for CliError {

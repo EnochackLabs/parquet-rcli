@@ -1,39 +1,65 @@
-use tokio::fs::File;
+use std::fs::File;
 
-use crate::Result;
+use arrow::array::RecordBatchReader;
+use arrow::datatypes::SchemaRef;
+use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
+use parquet::arrow::arrow_writer::ArrowWriter;
+use parquet::file::properties::{WriterProperties, WriterPropertiesBuilder};
+use parquet::file::reader::{FileReader, SerializedFileReader};
+
+use crate::{CliError, Result};
 
 pub struct Modifier {
-    input_files: Vec<File>,
-    output_file: File,
+    input_paths: Vec<String>,
+    output_path: String,
+    schema: SchemaRef,
 }
 
 impl Modifier {
-    pub async fn new(inputs: Vec<String>, output: String) -> Result<Self> {
-        let mut input_files = Vec::new();
-        for input in inputs {
-            let file = File::open(input).await?;
-            input_files.push(file);
+    pub fn new(inputs: Vec<String>, output: String) -> Result<Self> {
+        let mut readers = Vec::new();
+        for input in &inputs {
+            let file = File::open(input)?;
+            let reader = ParquetRecordBatchReaderBuilder::try_new(file)?.build()?;
+            readers.push(reader);
         }
-        let output_file = File::open(output).await?;
+        let schema = readers[0].schema();
+        for reader in &readers[1..] {
+            if reader.schema() != schema {
+                return Err(CliError::General(
+                    "Schemas of input files are different".to_string(),
+                ));
+            }
+        }
         Ok(Modifier {
-            input_files,
-            output_file,
+            input_paths: inputs,
+            output_path: output,
+            schema,
         })
     }
 
-    pub async fn merge(&self) -> Result<()> {
-        todo!()
-    }
-
-    pub async fn prune(&self) -> Result<()> {
-        todo!()
-    }
-
-    pub async fn trans_compression(&self) -> Result<()> {
-        todo!()
-    }
-
-    pub async fn masking(&self) -> Result<()> {
-        todo!()
+    pub fn rewrite(&self, mut properties_builder: WriterPropertiesBuilder) -> Result<()> {
+        let serialized_reader = SerializedFileReader::new(File::open(&self.input_paths[0])?)?;
+        let kv_md = serialized_reader
+            .metadata()
+            .file_metadata()
+            .key_value_metadata()
+            .cloned();
+        properties_builder = properties_builder.set_key_value_metadata(kv_md);
+        let properties = properties_builder.build();
+        let mut writer = ArrowWriter::try_new(
+            File::create(&self.output_path)?,
+            self.schema.clone(),
+            Some(properties),
+        )?;
+        for path in &self.input_paths {
+            let reader = ParquetRecordBatchReaderBuilder::try_new(File::open(path)?)?.build()?;
+            for batch in reader.into_iter() {
+                let batch = batch?;
+                writer.write(&batch)?;
+            }
+        }
+        writer.close()?;
+        Ok(())
     }
 }

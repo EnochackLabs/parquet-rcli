@@ -1,5 +1,9 @@
-use clap::Parser;
+use std::str::FromStr;
+
 use clap::Subcommand;
+use clap::{Args, Parser};
+use parquet::basic::Compression;
+use parquet::file::properties::WriterProperties;
 
 use parquet_rcli::inspector::*;
 use parquet_rcli::modifier::Modifier;
@@ -51,39 +55,17 @@ enum Commands {
         /// The path to the Parquet file
         path: String,
     },
-    /// Merges multiple Parquet files into one. The command doesn't merge row groups,
-    /// just places one after the other. When used to merge many small files, the
-    /// resulting file will still contain small row groups, which usually leads to bad
-    /// query performance
-    Merge {
-        /// Input files to merge
+    /// Rewrite one or more Parquet files to a new Parquet file
+    Rewrite {
+        /// Input file(s) separated by comma(s)
+        #[arg(short, long, required = true, value_delimiter = ',')]
         input: Vec<String>,
-        /// The output merged file
+        /// The output file
+        #[arg(short, long, required = true)]
         output: String,
-    },
-    /// Prune column(s) in a Parquet file and save it to a new file. The columns left
-    /// are not changed
-    Prune {
-        /// The input file
-        input: String,
-        /// The output pruned file
-        output: String,
-    },
-    /// Translate the compression of a given Parquet file to a new compression one to a
-    /// new Parquet file
-    TransCompression {
-        /// The input file
-        input: String,
-        /// The output pruned file
-        output: String,
-    },
-    /// Replace columns in a given Parquet file with masked values and write to a new
-    /// Parquet file.
-    Masking {
-        /// The input file
-        input: String,
-        /// The output pruned file
-        output: String,
+        /// Compression codec
+        #[arg(short, long, required = false)]
+        compression_codec: Option<String>,
     },
 }
 
@@ -99,15 +81,17 @@ async fn main() -> Result<()> {
             Inspector::new(path).await?.print_size(uncompressed).await?
         }
         Commands::ColumnSize { path } => Inspector::new(path).await?.print_column_size().await?,
-        Commands::Merge { input, output } => Modifier::new(input, output).await?.merge().await?,
-        Commands::Prune { input, output } => {
-            Modifier::new(vec![input], output).await?.prune().await?
-        }
-        Commands::TransCompression { input, output } => {
-            Modifier::new(vec![input], output).await?.prune().await?
-        }
-        Commands::Masking { input, output } => {
-            Modifier::new(vec![input], output).await?.masking().await?
+        Commands::Rewrite {
+            input,
+            output,
+            compression_codec,
+        } => {
+            let mut properties_builder = WriterProperties::builder();
+            if let Some(value) = compression_codec {
+                properties_builder =
+                    properties_builder.set_compression(Compression::from_str(&value)?);
+            }
+            Modifier::new(input, output)?.rewrite(properties_builder)?
         }
     }
     Ok(())
