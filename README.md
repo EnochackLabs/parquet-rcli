@@ -5,11 +5,8 @@ A Rust version of Apache Parquet command-line tools.
 ## TODO
 
 - [x] refining help messages
-- [ ] more subcommands
+- [x] more subcommands
   - [x] column-size
-  - [ ] merge
-  - [ ] prune
-  - [ ] trans-compression
-  - [ ] masking
+  - [x] rewrite
 - [ ] refining options for subcommands
-- [ ] customized errors
+- [x] customized errors
