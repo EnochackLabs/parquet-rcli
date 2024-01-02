@@ -24,6 +24,8 @@ enum Commands {
         /// The maximum number of records to print. 0 means no limit
         #[arg(short, long, default_value = "0")]
         limit: usize,
+        #[arg(short, long, value_delimiter = ',')]
+        columns: Vec<String>,
         /// The path to the Parquet file
         path: String,
     },
@@ -73,7 +75,16 @@ enum Commands {
 async fn main() -> Result<()> {
     let args = Cli::parse();
     match args.command {
-        Commands::Cat { limit, path } => Inspector::new(path).await?.print_data(limit).await?,
+        Commands::Cat {
+            limit,
+            columns,
+            path,
+        } => {
+            Inspector::new(path)
+                .await?
+                .print_data(columns, limit)
+                .await?
+        }
         Commands::RowCount { path } => Inspector::new(path).await?.row_count().await?,
         Commands::Schema { path } => Inspector::new(path).await?.print_schema().await?,
         Commands::Meta { path } => Inspector::new(path).await?.print_meta().await?,

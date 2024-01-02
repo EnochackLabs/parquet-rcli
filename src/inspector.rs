@@ -7,6 +7,7 @@ use parquet::arrow::arrow_reader::RowGroups;
 use parquet::file::metadata::ParquetMetaData;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 use parquet::schema::printer::print_schema;
+use parquet::schema::types::{Type, TypePtr};
 use serde::{Deserialize, Serialize};
 use serde_json::{to_string_pretty, Map};
 
@@ -29,8 +30,24 @@ impl Inspector {
         })
     }
 
-    pub async fn print_data(mut self, limit: usize) -> Result<()> {
-        for (i, row) in self.serialized_reader.get_row_iter(None)?.enumerate() {
+    pub async fn print_data(mut self, columns: Vec<String>, limit: usize) -> Result<()> {
+        let schema = self.metadata.file_metadata().schema().clone();
+        let fields = schema
+            .get_fields()
+            .iter()
+            .filter(|f| columns.contains(&f.name().to_string()))
+            .cloned()
+            .collect::<Vec<TypePtr>>();
+        let projection = if columns.is_empty() {
+            None
+        } else {
+            Some(
+                Type::group_type_builder("spark_schema")
+                    .with_fields(fields)
+                    .build()?,
+            )
+        };
+        for (i, row) in self.serialized_reader.get_row_iter(projection)?.enumerate() {
             if limit != 0 && i == limit {
                 break;
             }
