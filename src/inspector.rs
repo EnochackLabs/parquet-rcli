@@ -42,7 +42,7 @@ impl Inspector {
             None
         } else {
             Some(
-                Type::group_type_builder("spark_schema")
+                Type::group_type_builder(schema.name())
                     .with_fields(fields)
                     .build()?,
             )
