@@ -4,7 +4,7 @@ use arrow::array::RecordBatchReader;
 use arrow::datatypes::SchemaRef;
 use parquet::arrow::arrow_reader::ParquetRecordBatchReaderBuilder;
 use parquet::arrow::arrow_writer::ArrowWriter;
-use parquet::file::properties::{WriterProperties, WriterPropertiesBuilder};
+use parquet::file::properties::WriterPropertiesBuilder;
 use parquet::file::reader::{FileReader, SerializedFileReader};
 
 use crate::{CliError, Result};
@@ -38,7 +38,11 @@ impl Modifier {
         })
     }
 
-    pub fn rewrite(&self, mut properties_builder: WriterPropertiesBuilder) -> Result<()> {
+    pub fn rewrite(
+        &self,
+        mut properties_builder: WriterPropertiesBuilder,
+        columns: Vec<String>,
+    ) -> Result<()> {
         let serialized_reader = SerializedFileReader::new(File::open(&self.input_paths[0])?)?;
         let kv_md = serialized_reader
             .metadata()

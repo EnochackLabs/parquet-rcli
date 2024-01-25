@@ -68,6 +68,8 @@ enum Commands {
         /// Compression codec
         #[arg(short, long, required = false)]
         compression_codec: Option<String>,
+        #[arg(short, long, required = false, value_delimiter = ',')]
+        columns: Vec<String>,
     },
 }
 
@@ -96,13 +98,14 @@ async fn main() -> Result<()> {
             input,
             output,
             compression_codec,
+            columns,
         } => {
             let mut properties_builder = WriterProperties::builder();
             if let Some(value) = compression_codec {
                 properties_builder =
                     properties_builder.set_compression(Compression::from_str(&value)?);
             }
-            Modifier::new(input, output)?.rewrite(properties_builder)?
+            Modifier::new(input, output)?.rewrite(properties_builder, columns)?
         }
     }
     Ok(())
