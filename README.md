@@ -28,13 +28,3 @@ Options:
   -h, --help     Print help
   -V, --version  Print version
 ```
-
-## TODO
-
-- [x] refining help messages
-- [x] more subcommands
-  - [x] column-size
-  - [x] rewrite
-- [ ] refining options for subcommands
-- [x] customized errors
-- [ ] tests
